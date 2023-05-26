@@ -325,6 +325,60 @@ class Registry:
 
         return False
 
+    def get_transitive_children(self, parent_id: str) -> set[str]:
+        """Return a set of all transitive children for a check.
+
+        Parameters
+        ----------
+        parent_id : str
+            The id of the parent check.
+
+        Returns
+        -------
+        set[str]
+            The set of transitive children check id.
+        """
+        result: set[str] = set()
+
+        children = self._check_relationships_mapping.get(parent_id)
+
+        # Stop if parent_id has no children.
+        if not children:
+            return result
+
+        for child in children:
+            result.add(child)
+            result.update(self.get_transitive_children(child))
+
+        return result
+
+    def get_transitive_parents(self, child_id: str) -> set[str]:
+        """Return a set of all transitive parent for a check.
+
+        Parameters
+        ----------
+        child_id : str
+            The id of the child check.
+
+        Returns
+        -------
+        set[str]
+            The set of transitive parents check id.
+        """
+        result: set[str] = set()
+
+        # Stop if the check does not have any parent.
+        check = self._all_checks_mapping.get(child_id)
+        if not check or not check.depends_on:
+            return result
+
+        for relation in check.depends_on:
+            parent = relation[0]
+            result.add(parent)
+            result.update(self.get_transitive_parents(parent))
+
+        return result
+
     def scan(self, target: AnalyzeContext, skipped_checks: list[SkippedInfo]) -> dict[str, CheckResult]:
         """Run all checks on a target repo.
 
