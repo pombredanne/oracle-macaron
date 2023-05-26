@@ -73,6 +73,12 @@ class Analyzer:
             logger.error("Cannot start the analysis. Exiting ...")
             sys.exit(1)
 
+        if not registry.static_order:
+            logger.info("There is no check to run according to the exclude/include configuration.")
+            sys.exit(1)
+
+        logger.info("The following checks will be run: %s", registry.static_order)
+
         self.output_path = output_path
 
         # Prepare the directory to store all the build logs in the

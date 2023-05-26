@@ -56,6 +56,8 @@ class Registry:
         self.runner_num = 1
         self.runner_timeout = 5
 
+        self.static_order: list[str] = []
+
     def register(self, check: BaseCheck) -> None:
         """Register the check.
 
@@ -81,10 +83,6 @@ class Registry:
                 if not self._add_relationship_entry(check.check_id, parent_relationship):
                     logger.error("Cannot load relationships of check %s.", check.check_id)
                     sys.exit(1)
-
-        if not self._add_node(check):
-            logger.critical("Cannot add check %s to the directed graph.", check.check_id)
-            sys.exit(1)
 
         self._all_checks_mapping[check.check_id] = check
 
@@ -617,6 +615,9 @@ class Registry:
             if not self._build_topo_graph(ex_pat, in_pat):
                 logger.critical("Cannot build the graph for running checks.")
                 return False
+
+            self.static_order = list(deepcopy(self._graph).static_order())
+
             if not self._is_graph_ready:
                 self._graph.prepare()
                 self._is_graph_ready = True
