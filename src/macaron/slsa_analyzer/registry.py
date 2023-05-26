@@ -426,6 +426,33 @@ class Registry:
         final = include.difference(exclude)
         return final
 
+    def _build_topo_graph(self, ex_pats: list[str], in_pats: list[str]) -> bool:
+        """Build the directed graph that will be used for running the analysis.
+
+        Parameters
+        ----------
+        ex_pat : list[str]
+            The list of excluded glob patterns.
+        in_pat : list[str]
+            The list of included glob patterns.
+
+        Returns
+        -------
+        bool
+            False if there is any errors while building the graph, else True.
+        """
+        final_checks_id = self._get_final_checks(ex_pats, in_pats)
+
+        for check_id in final_checks_id:
+            # For a check to be included, all of its parents are also included to we could
+            # safely call _add_node to include it and its parents.
+            check = self._all_checks_mapping[check_id]
+            if not self._add_node(check):
+                logger.critical("Cannot add check %s to the directed graph.", check.check_id)
+                return False
+
+        return True
+
     def scan(self, target: AnalyzeContext, skipped_checks: list[SkippedInfo]) -> dict[str, CheckResult]:
         """Run all checks on a target repo.
 
@@ -585,6 +612,11 @@ class Registry:
         self._init_runners()
 
         try:
+            ex_pat = defaults.get_list(section="analysis.checks", item="exclude", fallback=[])
+            in_pat = defaults.get_list(section="analysis.checks", item="include", fallback=["*"])
+            if not self._build_topo_graph(ex_pat, in_pat):
+                logger.critical("Cannot build the graph for running checks.")
+                return False
             if not self._is_graph_ready:
                 self._graph.prepare()
                 self._is_graph_ready = True
