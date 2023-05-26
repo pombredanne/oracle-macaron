@@ -4,6 +4,7 @@
 """This module contains the Registry class for loading checks."""
 
 import concurrent.futures
+import fnmatch
 import inspect
 import logging
 import queue
@@ -378,6 +379,52 @@ class Registry:
             result.update(self.get_transitive_parents(parent))
 
         return result
+
+    def _get_final_checks(self, ex_pats: list[str], in_pats: list[str]) -> set[str]:
+        """Return a set of the checks' id to run from exclude and include glob patterns.
+
+        The exclude and include glob patterns are used to match against the id of registered checks.
+
+        Including a check would effectively include all transitive parents of that check.
+        Excluding a check would effectively exclude all transitive children of that check.
+
+        The final list of check to run would be the included checks minus the excluded checks.
+
+        Parameters
+        ----------
+        ex_pats : list[str]
+            The list of excluded glob patterns.
+        in_pats : list[str]
+            The list of included glob patterns.
+
+        Returns
+        -------
+        list[str]
+            The set of final checks to run.
+        """
+        all_checks = self._all_checks_mapping.keys()
+
+        exclude: set[str] = set()
+        for ex_pat in ex_pats:
+            exclude.update(fnmatch.filter(all_checks, ex_pat))
+
+        transitive_ex: set[str] = set()
+        for direct_ex in exclude:
+            transitive_ex.update(self.get_transitive_children(direct_ex))
+
+        include: set[str] = set()
+        for in_pat in in_pats:
+            include.update(fnmatch.filter(all_checks, in_pat))
+
+        transitive_in: set[str] = set()
+        for direct_in in include:
+            transitive_in.update(self.get_transitive_parents(direct_in))
+
+        include.update(transitive_in)
+        exclude.update(transitive_ex)
+
+        final = include.difference(exclude)
+        return final
 
     def scan(self, target: AnalyzeContext, skipped_checks: list[SkippedInfo]) -> dict[str, CheckResult]:
         """Run all checks on a target repo.
