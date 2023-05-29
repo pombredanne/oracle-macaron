@@ -425,7 +425,7 @@ class Registry:
         all_checks = self._all_checks_mapping.keys()
 
         exclude: set[str] = set()
-        for ex_pat in ex_pats:
+        for ex_pat in set(ex_pats):
             exclude.update(fnmatch.filter(all_checks, ex_pat))
 
         transitive_ex: set[str] = set()
@@ -433,7 +433,7 @@ class Registry:
             transitive_ex.update(self.get_transitive_children(direct_ex))
 
         include: set[str] = set()
-        for in_pat in in_pats:
+        for in_pat in set(in_pats):
             include.update(fnmatch.filter(all_checks, in_pat))
 
         transitive_in: set[str] = set()
@@ -462,8 +462,13 @@ class Registry:
             False if there is any errors while building the graph, else True.
         """
         try:
-            final_checks_id = self._get_final_checks(ex_pats, in_pats)
-        except (CheckCircularDependency, MacaronError) as error:
+            if "*" in in_pats and not ex_pats:
+                final_checks_id = set(self._all_checks_mapping)
+            elif "*" in ex_pats:
+                final_checks_id = set()
+            else:
+                final_checks_id = self._get_final_checks(ex_pats, in_pats)
+        except (CheckCircularDependency, CheckRegistryError) as error:
             logger.info(error)
             return False
 
