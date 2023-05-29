@@ -15,6 +15,7 @@ from graphlib import CycleError, TopologicalSorter
 from typing import Any
 
 from macaron.config.defaults import defaults
+from macaron.errors import MacaronError
 from macaron.slsa_analyzer.analyze_context import AnalyzeContext
 from macaron.slsa_analyzer.checks.base_check import BaseCheck
 from macaron.slsa_analyzer.checks.check_result import CheckResult, CheckResultType, SkippedInfo
@@ -22,6 +23,14 @@ from macaron.slsa_analyzer.runner import Runner
 from macaron.slsa_analyzer.slsa_req import ReqName
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class CheckRegistryError(MacaronError):
+    """The Check Registry Error class."""
+
+
+class CheckCircularDependency(CheckRegistryError):
+    """This error is raised when there is a circular dependency in the registered checks."""
 
 
 class Registry:
@@ -324,8 +333,8 @@ class Registry:
 
         return False
 
-    def get_transitive_children(self, parent_id: str) -> set[str]:
-        """Return a set of all transitive children for a check.
+    def get_transitive_children(self, parent_id: str) -> list[str]:
+        """Return a list of all transitive children for a check.
 
         Parameters
         ----------
@@ -334,25 +343,29 @@ class Registry:
 
         Returns
         -------
-        set[str]
-            The set of transitive children check id.
+        list[str]
+            The list of transitive children check id.
         """
-        result: set[str] = set()
+        visited = []
+        stack = [parent_id]
 
-        children = self._check_relationships_mapping.get(parent_id)
+        while stack:
+            ele = stack.pop()
+            visited.append(ele)
 
-        # Stop if parent_id has no children.
-        if not children:
-            return result
+            children = self._check_relationships_mapping.get(ele, {})
 
-        for child in children:
-            result.add(child)
-            result.update(self.get_transitive_children(child))
+            for child in children:
+                if child not in visited:
+                    stack.append(child)
+                elif child in stack:
+                    # Circular Dependency.
+                    raise CheckCircularDependency()
 
-        return result
+        return visited
 
-    def get_transitive_parents(self, child_id: str) -> set[str]:
-        """Return a set of all transitive parent for a check.
+    def get_transitive_parents(self, child_id: str) -> list[str]:
+        """Return a list of all transitive parent for a check.
 
         Parameters
         ----------
@@ -361,22 +374,31 @@ class Registry:
 
         Returns
         -------
-        set[str]
-            The set of transitive parents check id.
+        list[str]
+            The list of transitive parents check id.
         """
-        result: set[str] = set()
+        visited = []
+        stack = [child_id]
 
-        # Stop if the check does not have any parent.
-        check = self._all_checks_mapping.get(child_id)
-        if not check or not check.depends_on:
-            return result
+        while stack:
+            ele = stack.pop()
+            visited.append(ele)
 
-        for relation in check.depends_on:
-            parent = relation[0]
-            result.add(parent)
-            result.update(self.get_transitive_parents(parent))
+            check = self._all_checks_mapping.get(ele)
+            if not check:
+                # Shouldn't happen
+                raise CheckRegistryError()
 
-        return result
+            for relation in check.depends_on:
+                parent = relation[0]
+
+                if parent not in visited:
+                    stack.append(parent)
+                elif parent in stack:
+                    # Circular Dependency.
+                    raise CheckCircularDependency()
+
+        return visited
 
     def _get_final_checks(self, ex_pats: list[str], in_pats: list[str]) -> set[str]:
         """Return a set of the checks' id to run from exclude and include glob patterns.
@@ -439,7 +461,11 @@ class Registry:
         bool
             False if there is any errors while building the graph, else True.
         """
-        final_checks_id = self._get_final_checks(ex_pats, in_pats)
+        try:
+            final_checks_id = self._get_final_checks(ex_pats, in_pats)
+        except (CheckCircularDependency, MacaronError) as error:
+            logger.info(error)
+            return False
 
         for check_id in final_checks_id:
             # For a check to be included, all of its parents are also included to we could
