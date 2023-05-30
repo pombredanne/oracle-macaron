@@ -350,17 +350,24 @@ class Registry:
         stack = [parent_id]
 
         while stack:
-            ele = stack.pop()
-            visited.append(ele)
+            ele = stack[-1]
 
-            children = self._check_relationships_mapping.get(ele, {})
+            if ele not in visited:
+                visited.append(ele)
 
-            for child in children:
-                if child not in visited:
-                    stack.append(child)
-                elif child in stack:
-                    # Circular Dependency.
-                    raise CheckCircularDependency()
+                if ele not in self._all_checks_mapping:
+                    raise CheckRegistryError(f"Check {parent_id} does not exist")
+
+                children = self._check_relationships_mapping.get(ele, {})
+
+                for child in children:
+                    if child not in visited:
+                        stack.append(child)
+                    elif child in stack:
+                        # Circular Dependency.
+                        raise CheckCircularDependency("cycle nodes detected")
+            else:
+                stack.pop()
 
         return visited
 
@@ -381,22 +388,25 @@ class Registry:
         stack = [child_id]
 
         while stack:
-            ele = stack.pop()
-            visited.append(ele)
+            ele = stack[-1]
 
-            check = self._all_checks_mapping.get(ele)
-            if not check:
-                # Shouldn't happen
-                raise CheckRegistryError()
+            if ele not in visited:
+                visited.append(ele)
 
-            for relation in check.depends_on:
-                parent = relation[0]
+                if ele not in self._all_checks_mapping:
+                    raise CheckRegistryError(f"Check {ele} does not exist")
 
-                if parent not in visited:
-                    stack.append(parent)
-                elif parent in stack:
-                    # Circular Dependency.
-                    raise CheckCircularDependency()
+                check = self._all_checks_mapping.get(ele)
+
+                for relation in check.depends_on:  # type: ignore
+                    parent = relation[0]
+                    if parent not in visited:
+                        stack.append(parent)
+                    elif parent in stack:
+                        # Circular Dependency.
+                        raise CheckCircularDependency("cycle nodes detected")
+            else:
+                stack.pop()
 
         return visited
 
