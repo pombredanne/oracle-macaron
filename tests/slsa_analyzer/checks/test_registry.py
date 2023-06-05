@@ -14,7 +14,7 @@ from hypothesis.strategies import SearchStrategy, binary, booleans, integers, li
 
 from macaron.slsa_analyzer.checks.base_check import BaseCheck
 from macaron.slsa_analyzer.checks.check_result import CheckResultType
-from macaron.slsa_analyzer.registry import CheckRegistryError, Registry
+from macaron.slsa_analyzer.registry import CheckCircularDependency, CheckRegistryError, Registry
 
 
 # pylint: disable=protected-access
@@ -43,6 +43,30 @@ def check_registry_fixture() -> Registry:
     registry.register(BaseCheck("mcn_g_1", "Depend on h", [("mcn_h_1", CheckResultType.FAILED)]))  # type: ignore
     registry.register(BaseCheck("mcn_h_1", "Depend on i", [("mcn_i_1", CheckResultType.FAILED)]))  # type: ignore
     registry.register(BaseCheck("mcn_i_1", "Have no parent", []))  # type: ignore
+    return registry
+
+
+# pylint: disable=protected-access
+@pytest.fixture(name="circular_registry")
+def circular_registry_fixture() -> Registry:
+    """Return a registry instance with circular check dependencies.
+
+    Returns
+    -------
+    Registry
+        The registry with circular dependencies.
+    """
+    # Refresh Registry static variables before each test case
+    Registry._all_checks_mapping = {}
+    Registry._check_relationships_mapping = {}
+    Registry._graph = TopologicalSorter()
+    Registry._is_graph_ready = False
+
+    registry = Registry()
+    registry.register(BaseCheck("mcn_a_1", "Depend on b", [("mcn_b_1", CheckResultType.PASSED)]))  # type: ignore
+    registry.register(BaseCheck("mcn_b_1", "Depend on c", [("mcn_c_1", CheckResultType.PASSED)]))  # type: ignore
+    registry.register(BaseCheck("mcn_c_1", "Depend on a", [("mcn_a_1", CheckResultType.PASSED)]))  # type: ignore
+    registry.register(BaseCheck("mcn_d_1", "Depend on nothing", []))  # type: ignore
     return registry
 
 
@@ -251,6 +275,16 @@ class TestRegistry(TestCase):
             ["*", "*"],
             {"mcn_a_1", "mcn_b_1", "mcn_c_1", "mcn_d_1", "mcn_e_1", "mcn_f_1", "mcn_g_1", "mcn_h_1", "mcn_i_1"},
         ),
+        (
+            [],
+            ["mcn_?_1"],
+            {"mcn_a_1", "mcn_b_1", "mcn_c_1", "mcn_d_1", "mcn_e_1", "mcn_f_1", "mcn_g_1", "mcn_h_1", "mcn_i_1"},
+        ),
+        (
+            [],
+            ["mcn_[cf]_1"],
+            {"mcn_c_1", "mcn_f_1", "mcn_d_1", "mcn_e_1"},
+        ),
         ([], [], set()),
         (["*"], [], set()),
         (["*"], ["*"], set()),
@@ -305,3 +339,29 @@ def test_get_children_parents_special_cases(check_registry: Registry) -> None:
 
     with pytest.raises(CheckRegistryError):
         check_registry.get_transitive_children("not_exist")
+
+
+@pytest.mark.parametrize(
+    ("parent_id", "has_error"),
+    [("mcn_a_1", True), ("mcn_b_1", True), ("mcn_d_1", False)],
+)
+def test_get_transitive_children_circular(circular_registry: Registry, parent_id: str, has_error: bool) -> None:
+    """This method test get_transitive_children method with circular detection"""
+    if has_error:
+        with pytest.raises(CheckCircularDependency):
+            circular_registry.get_transitive_children(parent_id)
+    else:
+        assert circular_registry.get_transitive_children(parent_id)
+
+
+@pytest.mark.parametrize(
+    ("child_id", "has_error"),
+    [("mcn_a_1", True), ("mcn_b_1", True), ("mcn_d_1", False)],
+)
+def test_get_transitive_parent_circular(circular_registry: Registry, child_id: str, has_error: bool) -> None:
+    """This method test get_transitive_parent method with circular detection"""
+    if has_error:
+        with pytest.raises(CheckCircularDependency):
+            circular_registry.get_transitive_parents(child_id)
+    else:
+        assert circular_registry.get_transitive_parents(child_id)
