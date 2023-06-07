@@ -164,15 +164,19 @@
 {% endcall %}
 {% endmacro %}
 
-{% macro render_run_checks(data) %}
+{% macro render_run_checks(check_tree, excluded_checks) %}
 <ul class="tree-view-nested-list">
-    {% for key, first_level in data.items() %}
+    {% for key, first_level in check_tree.items() %}
     <li>
-        <div class="">{{ key }}</div>
+        <div>{{ key }}</div>
         <ul>
             {% for key, next_level in first_level.items() recursive %}
             <li>
+                {% if key in excluded_checks %}
+                <div class="check-tree-node-excluded">{{ key }}</div>
+                {% else %}
                 <div class="check-tree-node">{{ key }}</div>
+                {% endif %}
                 <ul>
                 {{ loop(next_level.items()) | indent(2 * 4) }}
                 </ul>
@@ -219,7 +223,7 @@
 
 
 {% block run_checks %}
-{{ render_run_checks(metadata.run_checks) | indent(4, first=true) }}
+{{ render_run_checks(metadata.check_tree, metadata.excluded_checks) | indent(4, first=true) }}
 {% endblock%}
 
 

@@ -119,7 +119,8 @@ class Record(Generic[RecordNode]):
         result = {
             "metadata": {
                 "timestamps": datetime.now().isoformat(sep=" ", timespec="seconds"),
-                "run_checks": registry.check_tree,
+                "check_tree": registry.check_tree,
+                "excluded_checks": registry.excluded_checks,
             },
             "target": self.context.get_dict() if self.context else {},
             "dependencies": self.get_dep_summary(),
