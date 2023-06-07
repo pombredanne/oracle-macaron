@@ -33,6 +33,9 @@ class CheckCircularDependency(CheckRegistryError):
     """This error is raised when there is a circular dependency in the registered checks."""
 
 
+CheckTree = dict[str, "CheckTree"]
+
+
 class Registry:
     """This abstract class is used to store checks in Macaron."""
 
@@ -65,7 +68,11 @@ class Registry:
         self.runner_num = 1
         self.runner_timeout = 5
 
-        self.static_order: list[str] = []
+        self.run_checks: set[str] = set()
+        self.excluded_checks: list[str] = []
+        self.no_parent_checks: list[str] = []
+
+        self.check_tree: CheckTree | None = None
 
     def register(self, check: BaseCheck) -> None:
         """Register the check.
@@ -87,6 +94,8 @@ class Registry:
         if not check.depends_on:
             if check.check_id not in self._check_relationships_mapping:
                 self._check_relationships_mapping[check.check_id] = {}
+
+            self.no_parent_checks.append(check.check_id)
         else:
             for parent_relationship in check.depends_on:
                 if not self._add_relationship_entry(check.check_id, parent_relationship):
@@ -456,7 +465,7 @@ class Registry:
         final = include.difference(exclude)
         return final
 
-    def _build_topo_graph(self, ex_pats: list[str], in_pats: list[str]) -> bool:
+    def _build_topo_graph(self, ex_pats: list[str], in_pats: list[str]) -> set[str] | None:
         """Build the directed graph that will be used for running the analysis.
 
         Parameters
@@ -468,8 +477,8 @@ class Registry:
 
         Returns
         -------
-        bool
-            False if there is any errors while building the graph, else True.
+        set[str] | None
+            Return the set of check id will be run or the value None if error.
         """
         try:
             if "*" in in_pats and not ex_pats:
@@ -480,7 +489,7 @@ class Registry:
                 final_checks_id = self._get_final_checks(ex_pats, in_pats)
         except (CheckCircularDependency, CheckRegistryError) as error:
             logger.info(error)
-            return False
+            return None
 
         for check_id in final_checks_id:
             # For a check to be included, all of its parents are also included to we could
@@ -488,9 +497,9 @@ class Registry:
             check = self._all_checks_mapping[check_id]
             if not self._add_node(check):
                 logger.critical("Cannot add check %s to the directed graph.", check.check_id)
-                return False
+                return None
 
-        return True
+        return final_checks_id
 
     def scan(self, target: AnalyzeContext, skipped_checks: list[SkippedInfo]) -> dict[str, CheckResult]:
         """Run all checks on a target repo.
@@ -650,15 +659,19 @@ class Registry:
         """
         self._init_runners()
 
+        ex_pat = defaults.get_list(section="analysis.checks", item="exclude", fallback=[])
+        in_pat = defaults.get_list(section="analysis.checks", item="include", fallback=["*"])
+
+        final_checks_id = self._build_topo_graph(ex_pat, in_pat)
+        if final_checks_id is None:
+            logger.critical("Cannot build the graph for running checks.")
+            return False
+
+        self.run_checks = final_checks_id
+        self.excluded_checks = [ex for ex in self._all_checks_mapping if ex not in self.run_checks]
+        self.check_tree = self.get_check_tree()
+
         try:
-            ex_pat = defaults.get_list(section="analysis.checks", item="exclude", fallback=[])
-            in_pat = defaults.get_list(section="analysis.checks", item="include", fallback=["*"])
-            if not self._build_topo_graph(ex_pat, in_pat):
-                logger.critical("Cannot build the graph for running checks.")
-                return False
-
-            self.static_order = list(deepcopy(self._graph).static_order())
-
             if not self._is_graph_ready:
                 self._graph.prepare()
                 self._is_graph_ready = True
@@ -738,6 +751,32 @@ class Registry:
                 return skipped_info
 
         return None
+
+    # TODO: Come up with a better name for this method.
+    def get_check_tree(self) -> CheckTree:
+        """Return a dictionary representation of the check relationships.
+
+        Returns
+        -------
+        CheckTree
+            A nested dictionary that represent the relationship between
+            checks with key is the check id and value is a dictionary
+            contains the children of that check.
+        """
+
+        def _traverse(
+            relation_mapping: dict[str, dict[str, CheckResultType]], roots: list[str], visited: list[str]
+        ) -> CheckTree:
+            result = {}
+
+            for root in roots:
+                if root not in visited:
+                    visited.append(root)
+                    children = list(relation_mapping.get(root, {}))
+                    result[root] = _traverse(relation_mapping, children, visited)
+            return result
+
+        return _traverse(self._check_relationships_mapping, self.no_parent_checks, [])
 
 
 registry = Registry()

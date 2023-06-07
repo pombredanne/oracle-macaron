@@ -73,11 +73,13 @@ class Analyzer:
             logger.error("Cannot start the analysis. Exiting ...")
             sys.exit(1)
 
-        if not registry.static_order:
+        if not registry.run_checks:
             logger.info("There is no check to run according to the exclude/include configuration.")
             sys.exit(1)
 
-        logger.info("The following checks will be run: %s", registry.static_order)
+        if registry.excluded_checks:
+            logger.info("The following checks are excluded from user configuration: %s", registry.excluded_checks)
+        logger.info("The following checks will be run: %s", registry.run_checks)
 
         self.output_path = output_path
 

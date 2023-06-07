@@ -190,7 +190,7 @@
             text-align: center;
             font-weight: bold;
             padding: 10px 10px;
-            font-size: 18px;
+            font-size: 20px;
         }
 
         #mcn_prov_sum {
@@ -271,6 +271,13 @@
         /* Rotate the caret icon when clicked on. */
         .caret-down::before {
             transform: rotate(90deg);
+        }
+
+        .check-tree-node::before {
+            content: "\2514";
+            color: black;
+            display: inline-block;
+            margin-right: 6px;
         }
 
         /* Hide the nested list. */
@@ -610,7 +617,7 @@
     </header>
 
     <div class="table_caption">Target information</div>
-    {% block target_info%}
+    {% block target_info %}
     {% endblock %}
 
     <div class='space_divider'></div>
@@ -628,6 +635,11 @@
     <div class='space_divider'></div>
 
     <div class="table_caption">Reports for Macaron checks</div>
+    <div class="table_sub_caption">Run checks</div>
+    {% block run_checks %}
+    {% endblock %}
+
+    <div class="table_sub_caption">Checks report</div>
     {% block checks_report %}
     {% endblock%}
 

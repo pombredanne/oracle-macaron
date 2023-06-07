@@ -164,6 +164,26 @@
 {% endcall %}
 {% endmacro %}
 
+{% macro render_run_checks(data) %}
+<ul class="tree-view-nested-list">
+    {% for key, first_level in data.items() %}
+    <li>
+        <div class="">{{ key }}</div>
+        <ul>
+            {% for key, next_level in first_level.items() recursive %}
+            <li>
+                <div class="check-tree-node">{{ key }}</div>
+                <ul>
+                {{ loop(next_level.items()) | indent(2 * 4) }}
+                </ul>
+            </li>
+            {% endfor %}
+        </ul>
+    </li>
+    {% endfor %}
+</ul>
+{% endmacro %}
+
 {# -------------------------------------------- #}
 
 {#
@@ -196,6 +216,11 @@
 {% block prov_summary %}
 {{ render_tree_view_nested_list(target.provenances.content) | indent(4, first=true) }}
 {% endblock %}
+
+
+{% block run_checks %}
+{{ render_run_checks(metadata.run_checks) | indent(4, first=true) }}
+{% endblock%}
 
 
 {% block checks_report %}
