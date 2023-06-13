@@ -255,13 +255,13 @@
             padding-left: 2em
         }
 
-        .caret {
+        .caret, .toggler {
             cursor: pointer;
             user-select: none;
         }
 
         /* Create the caret using a unicode symbol, and style it. */
-        .caret::before {
+        .caret::before, .toggler::before {
             content: "\25B8";
             color: black;
             display: inline-block;
@@ -269,7 +269,7 @@
         }
 
         /* Rotate the caret icon when clicked on. */
-        .caret-down::before {
+        .caret-down::before, .toggler-down::before {
             transform: rotate(90deg);
         }
 
@@ -292,7 +292,7 @@
         }
 
         /* Hide the nested list. */
-        .nested-ul {
+        .nested-ul, .inactive {
             display: none;
         }
 
@@ -646,9 +646,12 @@
     <div class='space_divider'></div>
 
     <div class="table_caption">Reports for Macaron checks</div>
-    <div class="table_sub_caption">Run checks</div>
-    {% block run_checks %}
-    {% endblock %}
+    <div class="table_sub_caption toggler" id="run-checks">Run checks</div>
+        <div id="run-checks-tree" class="inactive">
+        {% block run_checks %}
+        {% endblock %}
+        </div>
+    </div>
 
     <div class="table_sub_caption">Checks report</div>
     {% block checks_report %}
@@ -718,6 +721,13 @@
                     this.classList.toggle("caret-down");
                 });
             }
+
+            // Add a listener toggle the display of run checks.
+            let run_check_toggler = document.getElementById("run-checks");
+            run_check_toggler.addEventListener("click", function() {
+                this.classList.toggle("toggler-down");
+                document.getElementById("run-checks-tree").classList.toggle("active");
+            });
 
             // When loaded, expand all CI services.<n> elements
             setExpandState(document.querySelectorAll(".tree-view-nested-list > * > .caret"), true);
