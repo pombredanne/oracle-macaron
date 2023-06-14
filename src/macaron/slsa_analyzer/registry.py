@@ -762,6 +762,24 @@ class Registry:
             A nested dictionary that represent the relationship between
             checks with key is the check id and value is a dictionary
             contains the children of that check.
+
+        Examples
+        --------
+        Given the following checks and its relationships
+
+        .. code-block::
+
+            mcn_provenance_available_1
+            |-- mcn_provenance_level_three_1
+                |-- mcn_provenance_expectation_1
+            mcn_version_control_system_1
+            |-- mcn_trusted_builder_level_three_1
+
+        >>> registry.get_check_tree()
+        {
+            'mcn_provenance_available_1': {'mcn_provenance_level_three_1': {'mcn_provenance_expectation_1': {}}},
+            'mcn_version_control_system_1': {'mcn_trusted_builder_level_three_1': {}}
+        }
         """
 
         def _traverse(
