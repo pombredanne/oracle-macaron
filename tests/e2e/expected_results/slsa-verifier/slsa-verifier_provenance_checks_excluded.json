@@ -1,0 +1,198 @@
+{
+    "metadata": {
+        "timestamps": "2023-06-14 14:48:26",
+        "check_tree": {
+            "mcn_version_control_system_1": {
+                "mcn_trusted_builder_level_three_1": {
+                    "mcn_build_as_code_1": {
+                        "mcn_build_service_1": {
+                            "mcn_build_script_1": {}
+                        }
+                    }
+                }
+            },
+            "mcn_provenance_available_1": {
+                "mcn_provenance_level_three_1": {
+                    "mcn_provenance_expectation_1": {}
+                }
+            }
+        },
+        "excluded_checks": [
+            "mcn_provenance_level_three_1",
+            "mcn_provenance_expectation_1",
+            "mcn_provenance_available_1"
+        ]
+    },
+    "target": {
+        "info": {
+            "full_name": "slsa-framework/slsa-verifier",
+            "local_cloned_path": "../../../../output/git_repos/github_com/slsa-framework/slsa-verifier",
+            "remote_path": "https://github.com/slsa-framework/slsa-verifier",
+            "branch": "main",
+            "commit_hash": "fc50b662fcfeeeb0e97243554b47d9b20b14efac",
+            "commit_date": "2022-10-04T01:00:02+00:00"
+        },
+        "provenances": {
+            "is_inferred": true,
+            "content": {
+                "github_actions": [
+                    {
+                        "_type": "https://in-toto.io/Statement/v0.1",
+                        "subject": [],
+                        "predicateType": "https://slsa.dev/provenance/v0.2",
+                        "predicate": {
+                            "builder": {
+                                "id": "slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.2.0"
+                            },
+                            "buildType": "Trusted github_actions",
+                            "invocation": {
+                                "configSource": {
+                                    "uri": "https://github.com/slsa-framework/slsa-verifier@refs/heads/main",
+                                    "digest": {
+                                        "sha1": "fc50b662fcfeeeb0e97243554b47d9b20b14efac"
+                                    },
+                                    "entryPoint": "https://github.com/slsa-framework/slsa-verifier/blob/fc50b662fcfeeeb0e97243554b47d9b20b14efac/.github/workflows/release.yml"
+                                },
+                                "parameters": {},
+                                "environment": {}
+                            },
+                            "buildConfig": {},
+                            "metadata": {
+                                "buildInvocationId": "",
+                                "buildStartedOn": "<TIMESTAMP>",
+                                "buildFinishedOn": "<TIMESTAMP>",
+                                "completeness": {
+                                    "parameters": "false",
+                                    "environment": "false",
+                                    "materials": "false"
+                                },
+                                "reproducible": "false"
+                            },
+                            "materials": [
+                                {
+                                    "uri": "<URI>",
+                                    "digest": {}
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "checks": {
+            "summary": {
+                "DISABLED": 0,
+                "FAILED": 0,
+                "PASSED": 5,
+                "SKIPPED": 0,
+                "UNKNOWN": 0
+            },
+            "results": [
+                {
+                    "check_id": "mcn_build_as_code_1",
+                    "check_description": "The build definition and configuration executed by the build service is verifiably derived from text file definitions stored in a version control system.",
+                    "slsa_requirements": [
+                        "Build as code - SLSA Level 3"
+                    ],
+                    "justification": [
+                        "Check mcn_build_as_code_1 is set to PASSED because mcn_trusted_builder_level_three_1 PASSED."
+                    ],
+                    "result_type": "PASSED"
+                },
+                {
+                    "check_id": "mcn_build_script_1",
+                    "check_description": "Check if the target repo has a valid build script.",
+                    "slsa_requirements": [
+                        "Scripted Build - SLSA Level 1"
+                    ],
+                    "justification": [
+                        "Check mcn_build_script_1 is set to PASSED because mcn_build_service_1 PASSED."
+                    ],
+                    "result_type": "PASSED"
+                },
+                {
+                    "check_id": "mcn_build_service_1",
+                    "check_description": "Check if the target repo has a valid build service.",
+                    "slsa_requirements": [
+                        "Build service - SLSA Level 2"
+                    ],
+                    "justification": [
+                        "Check mcn_build_service_1 is set to PASSED because mcn_build_as_code_1 PASSED."
+                    ],
+                    "result_type": "PASSED"
+                },
+                {
+                    "check_id": "mcn_trusted_builder_level_three_1",
+                    "check_description": "Check whether the target uses a trusted SLSA level 3 builder.",
+                    "slsa_requirements": [
+                        "Hermetic - SLSA Level 4",
+                        "Isolated - SLSA Level 3",
+                        "Parameterless - SLSA Level 4",
+                        "Ephemeral environment - SLSA Level 3"
+                    ],
+                    "justification": [
+                        {
+                            "Found trusted builder GitHub Actions: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.2.0 triggered by": "https://github.com/slsa-framework/slsa-verifier/blob/fc50b662fcfeeeb0e97243554b47d9b20b14efac/.github/workflows/release.yml"
+                        },
+                        "However, could not find a passing workflow run."
+                    ],
+                    "result_type": "PASSED"
+                },
+                {
+                    "check_id": "mcn_version_control_system_1",
+                    "check_description": "Check whether the target repo uses a version control system.",
+                    "slsa_requirements": [
+                        "Version controlled - SLSA Level 2"
+                    ],
+                    "justification": [
+                        {
+                            "This is a Git repository": "https://github.com/slsa-framework/slsa-verifier"
+                        }
+                    ],
+                    "result_type": "PASSED"
+                }
+            ]
+        }
+    },
+    "dependencies": {
+        "analyzed_deps": 0,
+        "unique_dep_repos": 0,
+        "checks_summary": [
+            {
+                "check_id": "mcn_version_control_system_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_build_as_code_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_trusted_builder_level_three_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_provenance_level_three_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_build_script_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_provenance_expectation_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_provenance_available_1",
+                "num_deps_pass": 0
+            },
+            {
+                "check_id": "mcn_build_service_1",
+                "num_deps_pass": 0
+            }
+        ],
+        "dep_status": []
+    },
+    "policies_passed": [],
+    "policies_failed": []
+}

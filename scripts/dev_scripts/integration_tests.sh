@@ -418,6 +418,29 @@ then
     log_fail
 fi
 
+echo -e "\n----------------------------------------------------------------------------------"
+echo "Test running the analysis with all checks excluded."
+echo -e "----------------------------------------------------------------------------------\n"
+$RUN_MACARON -dp tests/e2e/configurations/exclude_all_checks.ini analyze -rp https://github.com/apache/maven --skip-deps
+
+if [ $? -eq 0 ];
+then
+    echo -e "Expect non-zero status code but got $?."
+    log_fail
+fi
+
+echo -e "\n----------------------------------------------------------------------------------"
+echo "slsa-framework/slsa-verifier: Analyzing the repo path when automatic dependency resolution is skipped"
+echo "and provenance checks are excluded."
+echo -e "----------------------------------------------------------------------------------\n"
+JSON_RESULT=$WORKSPACE/output/reports/github_com/slsa-framework/slsa-verifier/slsa-verifier.json
+JSON_EXPECTED=$WORKSPACE/tests/e2e/expected_results/slsa-verifier/slsa-verifier_provenance_checks_excluded.json
+DEFAULTS_FILE=$WORKSPACE/tests/e2e/configurations/exclude_provenance_checks.ini
+
+$RUN_MACARON -dp $DEFAULTS_FILE analyze -rp https://github.com/slsa-framework/slsa-verifier -b main -d fc50b662fcfeeeb0e97243554b47d9b20b14efac --skip-deps || log_fail
+
+$COMPARE_JSON_OUT $JSON_RESULT $JSON_EXPECTED || log_fail
+
 # Testing the CUE provenance expectation verifier.
 echo -e "\n----------------------------------------------------------------------------------"
 echo "Test verifying CUE provenance expectation."
