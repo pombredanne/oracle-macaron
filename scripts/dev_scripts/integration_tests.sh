@@ -429,18 +429,6 @@ then
     log_fail
 fi
 
-echo -e "\n----------------------------------------------------------------------------------"
-echo "slsa-framework/slsa-verifier: Analyzing the repo path when automatic dependency resolution is skipped"
-echo "and provenance checks are excluded."
-echo -e "----------------------------------------------------------------------------------\n"
-JSON_RESULT=$WORKSPACE/output/reports/github_com/slsa-framework/slsa-verifier/slsa-verifier.json
-JSON_EXPECTED=$WORKSPACE/tests/e2e/expected_results/slsa-verifier/slsa-verifier_provenance_checks_excluded.json
-DEFAULTS_FILE=$WORKSPACE/tests/e2e/configurations/exclude_provenance_checks.ini
-
-$RUN_MACARON -dp $DEFAULTS_FILE analyze -rp https://github.com/slsa-framework/slsa-verifier -b main -d fc50b662fcfeeeb0e97243554b47d9b20b14efac --skip-deps || log_fail
-
-$COMPARE_JSON_OUT $JSON_RESULT $JSON_EXPECTED || log_fail
-
 # Testing the CUE provenance expectation verifier.
 echo -e "\n----------------------------------------------------------------------------------"
 echo "Test verifying CUE provenance expectation."
@@ -476,6 +464,18 @@ POLICY_EXPECTED=$WORKSPACE/tests/policy_engine/expected_results/policy_report.js
 # Run policy engine on the database and compare results.
 $RUN_POLICY -f $POLICY_FILE -d "$WORKSPACE/output/macaron.db" || log_fail
 python $COMPARE_POLICIES $POLICY_RESULT $POLICY_EXPECTED || log_fail
+
+echo -e "\n----------------------------------------------------------------------------------"
+echo "slsa-framework/slsa-verifier: Analyzing the repo path when automatic dependency resolution is skipped"
+echo "and provenance checks are excluded."
+echo -e "----------------------------------------------------------------------------------\n"
+JSON_RESULT=$WORKSPACE/output/reports/github_com/slsa-framework/slsa-verifier/slsa-verifier.json
+JSON_EXPECTED=$WORKSPACE/tests/e2e/expected_results/slsa-verifier/slsa-verifier_provenance_checks_excluded.json
+DEFAULTS_FILE=$WORKSPACE/tests/e2e/configurations/exclude_provenance_checks.ini
+
+$RUN_MACARON -dp $DEFAULTS_FILE analyze -rp https://github.com/slsa-framework/slsa-verifier -b main -d fc50b662fcfeeeb0e97243554b47d9b20b14efac --skip-deps || log_fail
+
+$COMPARE_JSON_OUT $JSON_RESULT $JSON_EXPECTED || log_fail
 
 if [ $RESULT_CODE -ne 0 ];
 then
