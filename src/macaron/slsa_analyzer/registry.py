@@ -373,7 +373,6 @@ class Registry:
                     if child not in visited:
                         stack.append(child)
                     elif child in stack:
-                        # Circular Dependency.
                         raise CheckCircularDependency("cycle nodes detected")
             else:
                 stack.pop()
@@ -412,7 +411,6 @@ class Registry:
                     if parent not in visited:
                         stack.append(parent)
                     elif parent in stack:
-                        # Circular Dependency.
                         raise CheckCircularDependency("cycle nodes detected")
             else:
                 stack.pop()
@@ -488,7 +486,7 @@ class Registry:
             else:
                 final_checks_id = self._get_final_checks(ex_pats, in_pats)
         except (CheckCircularDependency, CheckRegistryError) as error:
-            logger.info(error)
+            logger.error(error)
             return None
 
         for check_id in final_checks_id:
