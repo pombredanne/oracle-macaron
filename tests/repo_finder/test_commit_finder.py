@@ -107,25 +107,25 @@ def test_commit_finder() -> None:
     git.branch("-D", "missing_branch")
 
     # No version in PURL.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven"))
     assert not branch
 
     # Unsupported PURL type.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:gem/ruby-artifact@1"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:gem/ruby-artifact@1"))
     assert not branch
 
     # Hash not present in repository, tests hash and tag.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:github/apache/maven@ab4ce3e"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:github/apache/maven@ab4ce3e"))
     assert not branch
 
     # Hash present but no associated branch.
-    branch, _ = commit_finder.find_commit(
+    branch, _, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:github/apache/maven@{commit_with_no_branch.hexsha}")
     )
     assert not branch
 
     # Valid PURL but repository has no tags yet.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven@1.0"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven@1.0"))
     assert not branch
 
     # Additional setup is done here to avoid tainting earlier tests.
@@ -155,56 +155,58 @@ def test_commit_finder() -> None:
     git_obj.repo.create_tag(tag_no_branch, ref=commit_with_no_branch.hexsha)
 
     # Tag with no branch.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_no_branch}"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_no_branch}"))
     assert not branch
 
     # Version that fails to create a pattern.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{bad_version}"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{bad_version}"))
     assert not branch
 
     # Version with a suffix and no matching tag.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven@1-JRE"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven@1-JRE"))
     assert not branch
 
     # Version with only one digit and no matching tag.
-    branch, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven@1"))
+    branch, _, _ = commit_finder.find_commit(git_obj, PackageURL.from_string("pkg:maven/apache/maven@1"))
     assert not branch
 
     # Valid repository PURL.
-    branch, digest = commit_finder.find_commit(
+    branch, digest, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:github/apache/maven@{commit_0.hexsha}")
     )
     assert branch == "master"
     assert digest == commit_0.hexsha
 
     # Valid artifact PURL.
-    branch, digest = commit_finder.find_commit(git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_version}"))
+    branch, digest, _ = commit_finder.find_commit(
+        git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_version}")
+    )
     assert branch == "master"
     assert digest == commit_0.hexsha
 
     # Valid artifact PURL with an alphanumeric suffix.
-    branch, digest = commit_finder.find_commit(
+    branch, digest, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_version}-RC1")
     )
     assert branch == "master"
     assert digest == commit_0.hexsha
 
     # Valid artifact PURL that should match a tag with a name prefix.
-    branch, digest = commit_finder.find_commit(
+    branch, digest, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:maven/apache/prefix_name@{tag_version}")
     )
     assert branch == "master"
     assert digest == empty_commit.hexsha
 
     # Valid artifact PURL that matches a version with a suffix, to a tag with the same suffix.
-    branch, digest = commit_finder.find_commit(
+    branch, digest, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_version_2}-DEV")
     )
     assert branch == "master"
     assert digest == empty_commit.hexsha
 
     # Valid artifact PURL that matches a version with a suffix, to a tag with the same suffix part in a multi-suffix.
-    branch, digest = commit_finder.find_commit(
+    branch, digest, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_version_2}_RELEASE")
     )
     assert branch == "master"
@@ -212,7 +214,7 @@ def test_commit_finder() -> None:
 
     # Valid artifact PURL that matches a version with an alphanumeric suffix, to a tag with the same suffix part in a
     # multi-suffix.
-    branch, digest = commit_finder.find_commit(
+    branch, digest, _ = commit_finder.find_commit(
         git_obj, PackageURL.from_string(f"pkg:maven/apache/maven@{tag_version_2}_RC1")
     )
     assert branch == "master"
