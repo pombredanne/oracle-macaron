@@ -100,7 +100,7 @@ class BaseCheck:
 
         if skipped_info:
             check_result_data = CheckResultData(
-                justification=[skipped_info["suppress_comment"]], result_tables=[], result_type=self.result_on_skip
+                exit_justification=[skipped_info["suppress_comment"]], result_tables=[], result_type=self.result_on_skip
             )
             logger.info(
                 "Check %s is skipped on target %s, comment: %s",
@@ -115,11 +115,11 @@ class BaseCheck:
                 self.check_info.check_id,
                 check_result_data.result_type.value,
                 target.component.purl,
-                check_result_data.justification,
+                check_result_data.justification_report,
             )
 
         justification_str = ""
-        for ele in check_result_data.justification:
+        for _, ele in check_result_data.justification_report:
             if isinstance(ele, dict):
                 for key, val in ele.items():
                     justification_str += f"{key}: {val}. "

@@ -8,7 +8,7 @@ import logging
 from macaron.errors import ExpectationRuntimeError
 from macaron.slsa_analyzer.analyze_context import AnalyzeContext
 from macaron.slsa_analyzer.checks.base_check import BaseCheck, CheckResultType
-from macaron.slsa_analyzer.checks.check_result import CheckResultData, Justification, ResultTables
+from macaron.slsa_analyzer.checks.check_result import CheckResultData, ResultTables
 from macaron.slsa_analyzer.ci_service.base_ci_service import NoneCIService
 from macaron.slsa_analyzer.package_registry import JFrogMavenRegistry
 from macaron.slsa_analyzer.provenance.loader import LoadIntotoAttestationError
@@ -56,12 +56,11 @@ class ProvenanceL3ContentCheck(BaseCheck):
         if not expectation:
             msg = "No expectation defined for this repository."
             logger.info("%s check was unable to find any expectations.", self.check_info.check_id)
-            return CheckResultData(justification=[msg], result_tables=[], result_type=CheckResultType.UNKNOWN)
+            return CheckResultData(exit_justification=[msg], result_tables=[], result_type=CheckResultType.UNKNOWN)
 
         package_registry_info_entries = ctx.dynamic_data["package_registries"]
         ci_services = ctx.dynamic_data["ci_services"]
 
-        justification: Justification = []
         result_tables: ResultTables = []
 
         # Check the provenances in package registries.
@@ -79,21 +78,17 @@ class ProvenanceL3ContentCheck(BaseCheck):
                             )
 
                             if expectation.validate(provenance.payload):
+                                expectation.asset_url = provenance.asset.url
                                 result_tables.append(expectation)
-                                justification.append(
-                                    f"Successfully verified the expectation against the provenance {provenance.asset.url}."
-                                )
                                 return CheckResultData(
-                                    justification=justification,
                                     result_tables=result_tables,
                                     result_type=CheckResultType.PASSED,
                                 )
 
                         except (LoadIntotoAttestationError, ExpectationRuntimeError) as error:
                             logger.error(error)
-                            justification.append("Could not verify expectation against the provenance.")
                             return CheckResultData(
-                                justification=justification,
+                                exit_justification=["Could not verify expectation against the provenance."],
                                 result_tables=result_tables,
                                 result_type=CheckResultType.FAILED,
                             )
@@ -109,30 +104,28 @@ class ProvenanceL3ContentCheck(BaseCheck):
                 logger.info("Could not find SLSA provenances.")
                 break
 
-            for payload in ci_info["provenances"]:
+            for provenance in ci_info["provenances"]:
                 try:
                     logger.info("Validating a provenance from %s against %s.", ci_info["service"].name, expectation)
 
                     # TODO: Is it worth returning more information rather than returning early?
-                    if expectation.validate(payload):
+                    if expectation.validate(provenance.payload):
+                        expectation.asset_url = provenance.asset.url
                         # We need to use typing.Protocol for multiple inheritance, however, the Expectation
                         # class uses inlined functions, which is not supported by Protocol.
                         result_tables.append(expectation)
-                        justification.append("Successfully verified the expectation against provenance.")
                         return CheckResultData(
-                            justification=justification, result_tables=result_tables, result_type=CheckResultType.PASSED
+                            result_tables=result_tables, result_type=CheckResultType.PASSED
                         )
 
                 except (LoadIntotoAttestationError, ExpectationRuntimeError) as error:
                     logger.error(error)
-                    justification.append("Could not verify expectation against the provenance.")
                     return CheckResultData(
-                        justification=justification, result_tables=result_tables, result_type=CheckResultType.FAILED
+                        exit_justification=["Could not verify expectation against the provenance."], result_tables=result_tables, result_type=CheckResultType.FAILED
                     )
 
-        justification.append("Failed to successfully verify expectation against any provenance files.")
         return CheckResultData(
-            justification=justification, result_tables=result_tables, result_type=CheckResultType.FAILED
+            exit_justification=["Failed to successfully verify expectation against any provenance files."], result_tables=result_tables, result_type=CheckResultType.FAILED
         )
 
 

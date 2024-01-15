@@ -2,16 +2,17 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl/.
 
 """This module contains the CheckResult class for storing the result of a check."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from heapq import heappush
 from typing import TypedDict
 
+from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase
 
 from macaron.slsa_analyzer.provenance.expectations.expectation import Expectation
 from macaron.slsa_analyzer.slsa_req import BUILD_REQ_DESC, ReqName
 
-Justification = list[str | dict[str, str]]
 ResultTables = list[DeclarativeBase | Expectation]
 
 
@@ -28,6 +29,30 @@ class CheckResultType(str, Enum):
     # implementation of this check.
     UNKNOWN = "UNKNOWN"
 
+class JustificationType(str, Enum):
+    """This class contains the type of a justification that will be used in creating the HTML report."""
+
+    #: If a justification has a text type, it will be added as a plain text.
+    TEXT = "text"
+
+    #: If a justification has a href type, it will be added as a hyperlink.
+    HREF = "href"
+
+class Confidence(float, Enum):
+    """This class contains confidence score for a check result.
+    
+    The scores must be in [0.0, 1.0].
+    """
+
+    #: A high confidence score.
+    HIGH = 1.0
+
+    #: A medium confidence score.
+    MEDIUM = 0.7
+
+    #: A low confidence score.
+    LOW = 0.5
+    
 
 @dataclass(frozen=True)
 class CheckInfo:
@@ -47,17 +72,42 @@ class CheckInfo:
 class CheckResultData:
     """This class stores the result of a check."""
 
-    #: List of justifications describing the reasons for the check result.
-    #: If an element in the justification is a string,
-    #: it will be displayed as a string, if it is a mapping,
-    #: the value will be rendered as a hyperlink in the html report.
-    justification: Justification
-
     #: List of result tables produced by the check.
     result_tables: ResultTables
 
     #: Result type of the check (e.g. PASSED).
     result_type: CheckResultType
+
+    #: Check result justification when for some reason the check has not run or succeeded.
+    exit_justification: list[str] | None = field(default=None)
+
+    @property
+    def justification_report(self) -> list:
+        # List of justifications describing the reasons for the check result.
+        # If an element in the justification is a string,
+        # it will be displayed as a string, if it is a mapping,
+        # the value will be rendered as a hyperlink in the html report.
+        if self.exit_justification:
+            return [(Confidence.HIGH, self.exit_justification)]
+
+        if not self.result_tables:
+            return [(Confidence.HIGH, ["Check has failed"])]
+        just_list = []
+        for result in self.result_tables:
+            
+            dict_justifications = {}
+            list_justifications = []
+            for col in result.__table__.columns:
+                if col.info.get("justification") and getattr(result, col.name):
+                    if col.info.get("justification") == JustificationType.HREF:
+                        dict_justifications[col.name] = getattr(result, col.name)
+                    elif col.info.get("justification") == JustificationType.TEXT:
+                        list_justifications.append(f"{col.name}: {getattr(result, col.name)}")
+
+            if dict_justifications:
+                list_justifications.append(dict_justifications)
+            heappush(just_list, (result.confidence, list_justifications))
+        return just_list
 
 
 @dataclass(frozen=True)
@@ -84,7 +134,7 @@ class CheckResult:
             "check_id": self.check.check_id,
             "check_description": self.check.check_description,
             "slsa_requirements": [str(BUILD_REQ_DESC.get(req)) for req in self.check.eval_reqs],
-            "justification": self.result.justification,
+            "justification": self.result.justification_report[0][1],
             "result_tables": self.result.result_tables,
             "result_type": self.result.result_type,
         }

@@ -381,7 +381,7 @@ class Registry:
                                 eval_reqs=[],
                             ),
                             result=CheckResultData(
-                                justification=[message],
+                                exit_justification=[message],
                                 result_type=CheckResultType.UNKNOWN,
                                 result_tables=[],
                             ),

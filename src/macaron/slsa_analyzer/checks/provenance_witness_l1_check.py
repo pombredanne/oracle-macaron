@@ -5,14 +5,13 @@
 
 import logging
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from macaron.database.database_manager import ORMBase
 from macaron.database.table_definitions import CheckFacts
 from macaron.slsa_analyzer.analyze_context import AnalyzeContext
 from macaron.slsa_analyzer.checks.base_check import BaseCheck
-from macaron.slsa_analyzer.checks.check_result import CheckResultData, CheckResultType, Justification, ResultTables
+from macaron.slsa_analyzer.checks.check_result import CheckResultData, CheckResultType, Confidence, JustificationType, ResultTables
 from macaron.slsa_analyzer.package_registry import JFrogMavenRegistry
 from macaron.slsa_analyzer.package_registry.jfrog_maven_registry import JFrogMavenAsset
 from macaron.slsa_analyzer.provenance.witness import (
@@ -26,6 +25,28 @@ from macaron.slsa_analyzer.slsa_req import ReqName
 from macaron.slsa_analyzer.specs.package_registry_spec import PackageRegistryInfo
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class WitnessProvenanceAvailableFacts(CheckFacts):
+    """The ORM mapping for justifications in provenance l3 check."""
+
+    __tablename__ = "_provenance_witness_l1_check"
+
+    #: The primary key.
+    id: Mapped[int] = mapped_column(ForeignKey("_check_facts.id"), primary_key=True)  # noqa: A003
+
+    #: The provenance asset name.
+    provenance_name: Mapped[str] = mapped_column(String, nullable=False, info={"justification": JustificationType.TEXT})
+
+    #: The URL for the provenance asset.
+    provenance_url: Mapped[str] = mapped_column(String, nullable=True, info={"justification": JustificationType.HREF})
+
+    #: The URL for the artifact asset.
+    artifact_url: Mapped[str] = mapped_column(String, nullable=True, info={"justification": JustificationType.HREF})
+
+    __mapper_args__ = {
+        "polymorphic_identity": "_provenance_witness_l1_check",
+    }
 
 
 def verify_artifact_assets(
@@ -81,19 +102,6 @@ def verify_artifact_assets(
     return fail_justifications
 
 
-class ProvenanceWitnessL1Table(CheckFacts, ORMBase):
-    """Result table for provenenance l3 check."""
-
-    __tablename__ = "_provenance_witness_l1_check"
-
-    # The primary key.
-    id: Mapped[int] = mapped_column(ForeignKey("_check_facts.id"), primary_key=True)  # noqa: A003
-
-    __mapper_args__ = {
-        "polymorphic_identity": "_provenance_witness_l1_check",
-    }
-
-
 class ProvenanceWitnessL1Check(BaseCheck):
     """This check examines a Witness provenance (https://github.com/testifysec/witness).
 
@@ -139,7 +147,6 @@ class ProvenanceWitnessL1Check(BaseCheck):
         verified_provenances = []
         verified_artifact_assets = []
 
-        justification: Justification = []
         result_tables: ResultTables = []
 
         for package_registry_info_entry in ctx.dynamic_data["package_registries"]:
@@ -167,30 +174,33 @@ class ProvenanceWitnessL1Check(BaseCheck):
                         failure_justification = verify_artifact_assets(artifact_assets, subjects)
 
                         if failure_justification:
-                            justification.extend(failure_justification)
                             return CheckResultData(
-                                justification=justification,
+                                exit_justification=failure_justification,
                                 result_tables=result_tables,
                                 result_type=CheckResultType.FAILED,
                             )
 
                         verified_artifact_assets.extend(artifact_assets)
                         verified_provenances.append(provenance)
+                        for artifact in verified_artifact_assets:
+                            result_tables.append(
+                                WitnessProvenanceAvailableFacts(
+                                    provenance_name=provenance.asset.name,
+                                    provenance_url=provenance.asset.url,
+                                    artifact_url=artifact.url,
+                                    confidence=Confidence.HIGH
+                                )
+                            )
 
         # When this check passes, it means: "the project produces verifiable witness provenances".
         # Therefore, If Macaron cannot discover any witness provenance, we "fail" the check.
         if len(verified_provenances) > 0:
-            justification.append("Successfully verified the following artifacts:")
-            for asset in verified_artifact_assets:
-                justification.append(f"* {asset.url}")
-            result_tables.append(ProvenanceWitnessL1Table())
-            return CheckResultData(
-                justification=justification, result_tables=result_tables, result_type=CheckResultType.PASSED
-            )
+            return CheckResultData(result_tables=result_tables, result_type=CheckResultType.PASSED)
 
-        justification.append("Failed to discover any witness provenance.")
         return CheckResultData(
-            justification=justification, result_tables=result_tables, result_type=CheckResultType.FAILED
+            exit_justification=["Failed to discover any witness provenance."],
+            result_tables=result_tables,
+            result_type=CheckResultType.FAILED,
         )
 
 

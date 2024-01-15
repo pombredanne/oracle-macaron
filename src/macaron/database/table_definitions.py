@@ -19,12 +19,25 @@ from pathlib import Path
 from typing import Any, Self
 
 from packageurl import PackageURL
-from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String, Table, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from macaron.database.database_manager import ORMBase
 from macaron.database.rfc3339_datetime import RFC3339DateTime
 from macaron.errors import CUEExpectationError, CUERuntimeError, InvalidPURLError
+from macaron.slsa_analyzer.checks.check_result import Confidence
 from macaron.slsa_analyzer.provenance.expectations.cue import cue_validator
 from macaron.slsa_analyzer.provenance.expectations.expectation import Expectation
 from macaron.slsa_analyzer.slsa_req import ReqName
@@ -415,6 +428,15 @@ class CheckFacts(ORMBase):
     #: The primary key.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # noqa: A003
 
+    #: The confidence level in the accuracy of the check fact. This value should be in [0.0, 1.0].
+    #: Because some analyses used in checks may use heuristics, the results can be inaccurate in certain cases.
+    #: We use the confidence score to enable the check designer to assign a confidence estimate.
+    #: This confidence is stored in the database to be used by the policy. This confidence score is
+    #: also used to decide which evidence should be shown to the user in the HTML/JSON report.
+    confidence: Mapped[float] = mapped_column(
+        Float, CheckConstraint("confidence>=0.0 AND confidence<=1.0"), nullable=False
+    )
+
     #: The foreign key to the software component.
     component_id: Mapped[int] = mapped_column(Integer, ForeignKey("_component.id"), nullable=False)
 
@@ -429,6 +451,9 @@ class CheckFacts(ORMBase):
 
     #: A many-to-one relationship with check results.
     checkresult: Mapped["MappedCheckResult"] = relationship(back_populates="checkfacts")
+
+    def __lt__(self, other) -> float:
+        return (1 - self.confidence) < (1 - other.confidence)
 
     #: The polymorphic inheritance configuration.
     __mapper_args__ = {
@@ -447,6 +472,9 @@ class CUEExpectation(Expectation, CheckFacts):
 
     #: The primary key, which is also a foreign key to the base check table.
     id: Mapped[int] = mapped_column(ForeignKey("_check_facts.id"), primary_key=True)  # noqa: A003
+
+    #: The URL for the provenance asset that the expectation is verified against.
+    asset_url: Mapped[str] = mapped_column(String, nullable=True, info={"justification": "href"})
 
     #: The polymorphic inheritance configuration.
     __mapper_args__ = {
@@ -475,6 +503,7 @@ class CUEExpectation(Expectation, CheckFacts):
             path=expectation_path,
             target="",
             expectation_type="CUE",
+            confidence=Confidence.HIGH
         )
 
         try:
